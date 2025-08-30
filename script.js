@@ -1,4 +1,4 @@
-// Roleta de Prêmios - Canvas
+// Roleta de Prêmios - Canvas + Lead (Supabase)
 // Itens fornecidos pelo usuário
 const items = [
   "Flyboard",
@@ -21,6 +21,11 @@ const palette = [
   "#064347", // brand-900
 ];
 
+// ----- Supabase Config (somente URL e ANON KEY são públicos) -----
+const SUPABASE_URL = "https://sotdtklmzwwnsmkpwcxw.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvdGR0a2xtend3bnNta3B3Y3h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1ODkwNDMsImV4cCI6MjA3MjE2NTA0M30.rOSszL2Rhl8wXTaqdpnYPGuES7pWH27kvADL_xuJz1U";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 // Estado e refs
 const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
@@ -29,6 +34,13 @@ const wrapper = document.querySelector(".wheel-wrapper");
 const popup = document.getElementById("popup");
 const popupText = document.getElementById("popupText");
 const popupClose = document.getElementById("popupClose");
+// Lead modal
+const leadModal = document.getElementById("leadModal");
+const leadForm = document.getElementById("leadForm");
+const leadName = document.getElementById("leadName");
+const leadPhone = document.getElementById("leadPhone");
+const leadError = document.getElementById("leadError");
+const leadClose = document.getElementById("leadClose");
 
 let deviceScale = 1;
 let currentAngle = 0; // radianos, 0 = eixo +X
@@ -217,12 +229,12 @@ function startSpin() {
   requestAnimationFrame(animate);
 }
 
-// Clique e teclado (Enter/Espaço) para girar
-canvas.addEventListener("click", startSpin);
+// Clique e teclado (Enter/Espaço) para girar — com proteção de lead
+canvas.addEventListener("click", attemptSpin);
 canvas.addEventListener("keydown", (e) => {
   if (e.key === "Enter" || e.key === " ") {
     e.preventDefault();
-    startSpin();
+    attemptSpin();
   }
 });
 
@@ -295,4 +307,83 @@ function shuffle(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+// ===== Lead & Supabase helpers =====
+function normalizePhone(v) {
+  return (v || "").replace(/[^0-9]+/g, "");
+}
+
+function showLeadModal() {
+  leadError.textContent = "";
+  leadModal.setAttribute("aria-hidden", "false");
+}
+function hideLeadModal() {
+  leadModal.setAttribute("aria-hidden", "true");
+}
+
+async function registerLead(name, phone) {
+  const { data, error } = await supabase.rpc("register_lead", {
+    p_name: name,
+    p_phone: phone,
+  });
+  if (error) throw error;
+  // data === true -> inseriu agora; false -> já existia
+  return !!data;
+}
+
+async function canSpin(phone) {
+  const { data, error } = await supabase.rpc("can_spin", { p_phone: phone });
+  if (error) throw error;
+  return !!data; // true -> permitido; false -> já participou
+}
+
+async function ensureAllowedToSpin() {
+  // Sempre solicitar os dados antes de cada giro (multiusuário no mesmo aparelho)
+  return new Promise((resolve) => {
+    showLeadModal();
+    const onSubmit = async (ev) => {
+      ev.preventDefault();
+      const name = leadName.value.trim();
+      const phoneRaw = leadPhone.value;
+      const phone = normalizePhone(phoneRaw);
+      if (!name || phone.length < 10) {
+        leadError.textContent = "Preencha nome e telefone válidos";
+        return;
+      }
+      leadError.textContent = "";
+      const btn = document.getElementById("leadSubmit");
+      const prevDisabled = btn.disabled;
+      btn.disabled = true;
+      try {
+        const inserted = await registerLead(name, phone);
+        if (!inserted) {
+          leadError.textContent = "Você já participou.";
+          btn.disabled = prevDisabled;
+          return resolve(false);
+        }
+        hideLeadModal();
+        btn.disabled = prevDisabled;
+        resolve(true);
+      } catch (e) {
+        console.error(e);
+        leadError.textContent = "Erro ao registrar. Tente novamente.";
+        btn.disabled = prevDisabled;
+      }
+    };
+    const onClose = () => {
+      hideLeadModal();
+      leadForm.removeEventListener("submit", onSubmit);
+      leadClose.removeEventListener("click", onClose);
+      resolve(false);
+    };
+    leadForm.addEventListener("submit", onSubmit, { once: true });
+    leadClose.addEventListener("click", onClose, { once: true });
+  });
+}
+
+async function attemptSpin() {
+  if (spinning) return; // já está girando
+  const ok = await ensureAllowedToSpin();
+  if (ok) startSpin();
 }

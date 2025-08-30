@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css" />
+  <!-- Supabase JS v2 -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <main class="app">
@@ -19,15 +21,36 @@
       <p id="result" class="result" aria-live="polite">Clique para Girar</p>
       <img id="logo" class="logo" src="./logo.png" alt="VM | EXPERIENCE" />
     </div>
-
-    <!-- Popup de resultado -->
-    <div id="popup" class="popup" role="dialog" aria-modal="true" aria-hidden="true">
-      <div class="popup-box">
-        <div id="popupText" class="popup-text">Resultado</div>
-        <button id="popupClose" class="popup-btn" type="button">Fechar</button>
-      </div>
-    </div>
   </main>
-  <script src="./script.js"></script>
+
+  <!-- Popup de Resultado -->
+  <div id="popup" class="popup" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="popup-box">
+      <div class="popup-text" id="popupText">Você ganhou!</div>
+      <button class="popup-btn" id="popupClose" type="button">OK</button>
+    </div>
+  </div>
+
+  <!-- Modal de Lead -->
+  <div id="leadModal" class="modal" aria-hidden="true" role="dialog" aria-labelledby="leadTitle" aria-modal="true">
+    <div class="modal-dialog">
+      <button class="modal-close" id="leadClose" aria-label="Fechar">×</button>
+      <h2 id="leadTitle">Antes de girar</h2>
+      <p class="modal-sub">Informe seus dados para participar uma única vez.</p>
+      <form id="leadForm">
+        <label class="field">
+          <span>Nome</span>
+          <input id="leadName" type="text" name="name" autocomplete="name" required />
+        </label>
+        <label class="field">
+          <span>Telefone (WhatsApp)</span>
+          <input id="leadPhone" type="tel" name="phone" inputmode="tel" autocomplete="tel" required placeholder="(DDD) 99999-9999" />
+        </label>
+        <button id="leadSubmit" type="submit" class="btn-primary">Participar e girar</button>
+        <p id="leadError" class="form-error" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+  <script defer src="./script.js"></script>
 </body>
 </html>
