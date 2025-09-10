@@ -37,6 +37,7 @@
       <button class="modal-close" id="leadClose" aria-label="Fechar">×</button>
       <h2 id="leadTitle">Antes de girar</h2>
       <p class="modal-sub">Informe seus dados para participar uma única vez.</p>
+<<<<<<< HEAD
       <form id="leadForm">
         <label class="field">
           <span>Nome</span>
@@ -45,6 +46,16 @@
         <label class="field">
           <span>Telefone (WhatsApp)</span>
           <input id="leadPhone" type="tel" name="phone" inputmode="tel" autocomplete="tel" required placeholder="(DDD) 99999-9999" />
+=======
+      <form id="leadForm" autocomplete="off">
+        <label class="field">
+          <span>Nome</span>
+          <input id="leadName" type="text" name="name" autocomplete="off" required />
+        </label>
+        <label class="field">
+          <span>Telefone (WhatsApp)</span>
+          <input id="leadPhone" type="tel" name="phone" inputmode="tel" autocomplete="off" required placeholder="(DDD) 99999-9999" />
+>>>>>>> e54b828 (Correção de bugs)
         </label>
         <button id="leadSubmit" type="submit" class="btn-primary">Participar e girar</button>
         <p id="leadError" class="form-error" aria-live="polite"></p>

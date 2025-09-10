@@ -47,6 +47,10 @@ let currentAngle = 0; // radianos, 0 = eixo +X
 let spinning = false;
 let currentItems = items.slice(); // ordem atual desenhada
 let lastWinner = null; // evita repetir o mesmo prêmio em giros consecutivos
+<<<<<<< HEAD
+=======
+let retryCredit = 0; // permite novo giro sem cadastro quando cair em "Tente novamente"
+>>>>>>> e54b828 (Correção de bugs)
 
 // Configuração de velocidade do giro (ajuste aqui)
 const SPIN_DURATION_MS = 2000; // 2s
@@ -275,6 +279,13 @@ function showPopupFor(label) {
   const msg = buildMessage(label);
   popupText.textContent = msg;
   popup.setAttribute("aria-hidden", "false");
+<<<<<<< HEAD
+=======
+  // Concede uma nova tentativa quando cair em "Tente novamente"
+  if (typeof label === "string" && label.toLowerCase().includes("tente novamente")) {
+    retryCredit = 1;
+  }
+>>>>>>> e54b828 (Correção de bugs)
 }
 
 function hidePopup() {
@@ -315,8 +326,19 @@ function normalizePhone(v) {
 }
 
 function showLeadModal() {
+<<<<<<< HEAD
   leadError.textContent = "";
   leadModal.setAttribute("aria-hidden", "false");
+=======
+  // Limpa os campos a cada exibição (multiusuário no mesmo aparelho)
+  leadError.textContent = "";
+  try { leadForm.reset(); } catch (_) {}
+  leadName.value = "";
+  leadPhone.value = "";
+  leadModal.setAttribute("aria-hidden", "false");
+  // Foco no nome para agilizar o atendimento
+  setTimeout(() => { try { leadName.focus(); } catch (_) {} }, 0);
+>>>>>>> e54b828 (Correção de bugs)
 }
 function hideLeadModal() {
   leadModal.setAttribute("aria-hidden", "true");
@@ -384,6 +406,15 @@ async function ensureAllowedToSpin() {
 
 async function attemptSpin() {
   if (spinning) return; // já está girando
+<<<<<<< HEAD
+=======
+  // Se o usuário tem crédito por "Tente novamente", permite girar sem novo cadastro
+  if (retryCredit > 0) {
+    retryCredit -= 1;
+    startSpin();
+    return;
+  }
+>>>>>>> e54b828 (Correção de bugs)
   const ok = await ensureAllowedToSpin();
   if (ok) startSpin();
 }
