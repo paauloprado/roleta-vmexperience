@@ -42,6 +42,39 @@ const leadPhone = document.getElementById("leadPhone");
 const leadError = document.getElementById("leadError");
 const leadClose = document.getElementById("leadClose");
 
+// Máscara de telefone (Brasil) enquanto digita
+// Formata como: (DD) 99999-9999 (11 dígitos) ou (DD) 9999-9999 (10 dígitos)
+function maskPhoneBR(value) {
+  const d = (value || "").replace(/\D+/g, "").slice(0, 11);
+  if (d.length <= 2) return d ? `(${d}` : "";
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+try {
+  // Limita o tamanho visual do campo e aplica placeholder padrão
+  leadPhone.setAttribute("maxlength", "16");
+  if (!leadPhone.getAttribute("placeholder")) {
+    leadPhone.setAttribute("placeholder", "(DD) 99999-9999");
+  }
+  // Aplica máscara em tempo real
+  leadPhone.addEventListener("input", () => {
+    const start = leadPhone.selectionStart || 0;
+    const end = leadPhone.selectionEnd || 0;
+    const before = leadPhone.value;
+    leadPhone.value = maskPhoneBR(leadPhone.value);
+    // Tenta manter o cursor próximo da posição anterior
+    const delta = leadPhone.value.length - before.length;
+    const newPos = Math.max(0, start + delta);
+    try { leadPhone.setSelectionRange(newPos, newPos); } catch (_) {}
+  });
+  // Normaliza ao perder foco (garante máscara correta)
+  leadPhone.addEventListener("blur", () => {
+    leadPhone.value = maskPhoneBR(leadPhone.value);
+  });
+} catch (_) {}
+
 let deviceScale = 1;
 let currentAngle = 0; // radianos, 0 = eixo +X
 let spinning = false;
