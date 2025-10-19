@@ -1,10 +1,10 @@
-// Roleta de Prêmios - Canvas + Lead (Supabase)
-// Itens fornecidos pelo usuário
+// Roleta de Prêmios (sem backend)
+// Itens da roleta
 const items = [
-  "Flyboard",
+  "Caneta",
   "10% de desconto",
-  "Pedalinho",
-  "Standup",
+  "Caderneta",
+  "Garrafa",
   "5% de desconto",
   "Tente novamente",
   "Perdeu a vez",
@@ -21,10 +21,52 @@ const palette = [
   "#064347", // brand-900
 ];
 
-// ----- Supabase Config (somente URL e ANON KEY são públicos) -----
-const SUPABASE_URL = "https://sotdtklmzwwnsmkpwcxw.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvdGR0a2xtend3bnNta3B3Y3h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1ODkwNDMsImV4cCI6MjA3MjE2NTA0M30.rOSszL2Rhl8wXTaqdpnYPGuES7pWH27kvADL_xuJz1U";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ----- Limites diários (por dia) -----
+const dailyLimits = {
+  Garrafa: 20,
+  Caneta: 50,
+  Caderneta: 15,
+};
+
+function todayKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function loadDailyCounts() {
+  const key = `roleta_counts_${todayKey()}`;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function saveDailyCounts(counts) {
+  const key = `roleta_counts_${todayKey()}`;
+  try {
+    localStorage.setItem(key, JSON.stringify(counts));
+  } catch (_) {}
+}
+
+function remainingFor(label) {
+  const limit = dailyLimits[label];
+  if (!limit) return Infinity; // itens sem limite
+  const counts = loadDailyCounts();
+  const used = counts[label] || 0;
+  return Math.max(0, limit - used);
+}
+
+function consumeOne(label) {
+  if (!dailyLimits[label]) return; // não rastreia itens sem limite
+  const counts = loadDailyCounts();
+  counts[label] = (counts[label] || 0) + 1;
+  saveDailyCounts(counts);
+}
 
 // Estado e refs
 const canvas = document.getElementById("wheel");
@@ -34,52 +76,15 @@ const wrapper = document.querySelector(".wheel-wrapper");
 const popup = document.getElementById("popup");
 const popupText = document.getElementById("popupText");
 const popupClose = document.getElementById("popupClose");
-// Lead modal
-const leadModal = document.getElementById("leadModal");
-const leadForm = document.getElementById("leadForm");
-const leadName = document.getElementById("leadName");
-const leadPhone = document.getElementById("leadPhone");
-const leadError = document.getElementById("leadError");
-const leadClose = document.getElementById("leadClose");
 
-// Máscara de telefone (Brasil) enquanto digita
-// Formata como: (DD) 99999-9999 (11 dígitos) ou (DD) 9999-9999 (10 dígitos)
-function maskPhoneBR(value) {
-  const d = (value || "").replace(/\D+/g, "").slice(0, 11);
-  if (d.length <= 2) return d ? `(${d}` : "";
-  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
-  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
-}
-
-try {
-  // Limita o tamanho visual do campo e aplica placeholder padrão
-  leadPhone.setAttribute("maxlength", "16");
-  if (!leadPhone.getAttribute("placeholder")) {
-    leadPhone.setAttribute("placeholder", "(DD) 99999-9999");
-  }
-  // Aplica máscara em tempo real
-  leadPhone.addEventListener("input", () => {
-    const start = leadPhone.selectionStart || 0;
-    const end = leadPhone.selectionEnd || 0;
-    const before = leadPhone.value;
-    leadPhone.value = maskPhoneBR(leadPhone.value);
-    // Tenta manter o cursor próximo da posição anterior
-    const delta = leadPhone.value.length - before.length;
-    const newPos = Math.max(0, start + delta);
-    try { leadPhone.setSelectionRange(newPos, newPos); } catch (_) {}
-  });
-  // Normaliza ao perder foco (garante máscara correta)
-  leadPhone.addEventListener("blur", () => {
-    leadPhone.value = maskPhoneBR(leadPhone.value);
-  });
-} catch (_) {}
+// Sem captura de leads
 
 let deviceScale = 1;
 let currentAngle = 0; // radianos, 0 = eixo +X
 let spinning = false;
 let currentItems = items.slice(); // ordem atual desenhada
-let lastWinner = null; // evita repetir o mesmo prêmio em giros consecutivos
+let lastWinner = null; // compatibilidade
+let lastWinners = []; // histórico dos últimos prêmios (mais recente em index 0)
 let retryCredit = 0; // permite novo giro sem cadastro quando cair em "Tente novamente"
 
 // Configuração de velocidade do giro (ajuste aqui)
@@ -220,14 +225,33 @@ function startSpin() {
 
   // destino: rotação base + voltas + offset aleatório de segmento
   const turns = SPIN_TURNS;
-  let randomIndex = Math.floor(Math.random() * n);
-  if (n > 1) {
-    let safety = 0;
-    while (currentItems[randomIndex] === lastWinner && safety < 12) {
-      randomIndex = Math.floor(Math.random() * n);
-      safety++;
+  // candidatos válidos: não esgotados e não geram repetição 2x/3x
+  const candidates = [];
+  for (let i = 0; i < n; i++) {
+    const label = currentItems[i];
+    const rem = remainingFor(label);
+    if (rem <= 0) continue;
+    const prev1 = lastWinners[0];
+    const prev2 = lastWinners[1];
+    // bloquear se criaria 2 seguidas
+    if (prev1 && label === prev1) continue;
+    // bloquear se criaria 3 seguidas (prev1==prev2==label)
+    if (prev1 && prev2 && prev1 === label && prev2 === label) continue;
+    candidates.push(i);
+  }
+  // Se não houver candidatos (ex.: todos limitados esgotados e/ou só resta o mesmo do último), permite qualquer não esgotado
+  let pool = candidates;
+  if (pool.length === 0) {
+    for (let i = 0; i < n; i++) {
+      const label = currentItems[i];
+      if (remainingFor(label) > 0) pool.push(i);
     }
   }
+  // Se ainda vazio (tudo esgotado), usa todos para não travar (apenas feedback, não consumirá nada)
+  if (pool.length === 0) {
+    for (let i = 0; i < n; i++) pool.push(i);
+  }
+  const randomIndex = pool[Math.floor(Math.random() * pool.length)];
 
   // Queremos que, ao parar, o segmento escolhido fique sob o ponteiro no topo.
   const targetSegmentCenter = randomIndex * segAngle + segAngle / 2;
@@ -256,14 +280,21 @@ function startSpin() {
       const label = currentItems[winner];
       resultEl.textContent = label;
       showPopupFor(label);
+      // Consome cota se aplicável e ainda houver
+      if (remainingFor(label) > 0 && dailyLimits[label]) {
+        consumeOne(label);
+      }
       lastWinner = label;
+      // atualiza histórico: mais recente primeiro, mantém 2
+      lastWinners.unshift(label);
+      if (lastWinners.length > 2) lastWinners.length = 2;
       spinning = false;
     }
   }
   requestAnimationFrame(animate);
 }
 
-// Clique e teclado (Enter/Espaço) para girar — com proteção de lead
+// Clique e teclado (Enter/Espaço) para girar
 canvas.addEventListener("click", attemptSpin);
 canvas.addEventListener("keydown", (e) => {
   if (e.key === "Enter" || e.key === " ") {
@@ -347,93 +378,14 @@ function shuffle(arr) {
   return a;
 }
 
-// ===== Lead & Supabase helpers =====
-function normalizePhone(v) {
-  return (v || "").replace(/[^0-9]+/g, "");
-}
-
-function showLeadModal() {
-  // Limpa os campos a cada exibição (multiusuário no mesmo aparelho)
-  leadError.textContent = "";
-  try { leadForm.reset(); } catch (_) {}
-  leadName.value = "";
-  leadPhone.value = "";
-  leadModal.setAttribute("aria-hidden", "false");
-  // Foco no nome para agilizar o atendimento
-  setTimeout(() => { try { leadName.focus(); } catch (_) {} }, 0);
-}
-function hideLeadModal() {
-  leadModal.setAttribute("aria-hidden", "true");
-}
-
-async function registerLead(name, phone) {
-  const { data, error } = await supabase.rpc("register_lead", {
-    p_name: name,
-    p_phone: phone,
-  });
-  if (error) throw error;
-  // data === true -> inseriu agora; false -> já existia
-  return !!data;
-}
-
-async function canSpin(phone) {
-  const { data, error } = await supabase.rpc("can_spin", { p_phone: phone });
-  if (error) throw error;
-  return !!data; // true -> permitido; false -> já participou
-}
-
-async function ensureAllowedToSpin() {
-  // Sempre solicitar os dados antes de cada giro (multiusuário no mesmo aparelho)
-  return new Promise((resolve) => {
-    showLeadModal();
-    const onSubmit = async (ev) => {
-      ev.preventDefault();
-      const name = leadName.value.trim();
-      const phoneRaw = leadPhone.value;
-      const phone = normalizePhone(phoneRaw);
-      if (!name || phone.length < 10) {
-        leadError.textContent = "Preencha nome e telefone válidos";
-        return;
-      }
-      leadError.textContent = "";
-      const btn = document.getElementById("leadSubmit");
-      const prevDisabled = btn.disabled;
-      btn.disabled = true;
-      try {
-        const inserted = await registerLead(name, phone);
-        if (!inserted) {
-          leadError.textContent = "Você já participou.";
-          btn.disabled = prevDisabled;
-          return resolve(false);
-        }
-        hideLeadModal();
-        btn.disabled = prevDisabled;
-        resolve(true);
-      } catch (e) {
-        console.error(e);
-        leadError.textContent = "Erro ao registrar. Tente novamente.";
-        btn.disabled = prevDisabled;
-      }
-    };
-    const onClose = () => {
-      hideLeadModal();
-      leadForm.removeEventListener("submit", onSubmit);
-      leadClose.removeEventListener("click", onClose);
-      resolve(false);
-    };
-    leadForm.addEventListener("submit", onSubmit, { once: true });
-    leadClose.addEventListener("click", onClose, { once: true });
-  });
-}
-
+// Tentativa de giro sem leads/backend
 async function attemptSpin() {
-  if (spinning) return; // já está girando
-  // Se o usuário tem crédito por "Tente novamente", permite girar sem novo cadastro
+  if (spinning) return;
+  // Se cair em "Tente novamente", permite 1 novo giro automático
   if (retryCredit > 0) {
     retryCredit -= 1;
     startSpin();
     return;
   }
-  const ok = await ensureAllowedToSpin();
-  if (ok) startSpin();
+  startSpin();
 }
