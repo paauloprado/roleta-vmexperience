@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Roleta VM EXPERIENCE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+  
+</head>
+<body>
+  <main class="app">
+    <div class="wheel-wrapper">
+      <div class="pointer" aria-hidden="true"></div>
+      <canvas id="wheel" width="800" height="800" aria-label="Roleta" role="img" tabindex="0"></canvas>
+    </div>
+    <div class="below">
+      <p id="result" class="result" aria-live="polite">Clique para Girar</p>
+      <img id="logo" class="logo" src="./logo.png" alt="VM | EXPERIENCE" />
+    </div>
+  </main>
+
+  <!-- Popup de Resultado -->
+  <div id="popup" class="popup" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="popup-box">
+      <div class="popup-text" id="popupText">Você ganhou!</div>
+      <button class="popup-btn" id="popupClose" type="button">OK</button>
+    </div>
+  </div>
+  <script defer src="./script.js"></script>
+</body>
+</html>
