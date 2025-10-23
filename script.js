@@ -2,10 +2,9 @@
 // Itens da roleta
 const items = [
   "Caneta",
-  "10% de desconto",
   "Caderneta",
   "Garrafa",
-  "5% de desconto",
+  "Ecobag",
   "Tente novamente",
   "Perdeu a vez",
 ];
@@ -23,9 +22,10 @@ const palette = [
 
 // ----- Limites diários (por dia) -----
 const dailyLimits = {
-  Garrafa: 20,
-  Caneta: 50,
-  Caderneta: 15,
+  Garrafa: 15,
+  Caneta: 40,
+  Caderneta: 10,
+  Ecobag: 30,
 };
 
 function todayKey() {
